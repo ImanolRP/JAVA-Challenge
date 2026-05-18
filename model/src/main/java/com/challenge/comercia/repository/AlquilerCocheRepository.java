@@ -18,6 +18,14 @@ public interface AlquilerCocheRepository
     extends JpaRepository<AlquilerCoche, Long> {
 
   /**
+   * Obtiene todas las lineas de coche de un alquiler.
+   *
+   * @param alquilerId id del alquiler
+   * @return lineas de alquiler
+   */
+  List<AlquilerCoche> findByAlquilerId(Long alquilerId);
+
+  /**
    * Devuelve los registros de AlquilerCoche cuyos coches estan ocupados en el
    * rango de fechas dado (solapamiento de periodos).
    *

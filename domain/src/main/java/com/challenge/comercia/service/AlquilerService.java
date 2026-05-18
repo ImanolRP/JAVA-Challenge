@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -17,18 +18,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
-import com.challenge.comercia.dto.AlquilerCocheDetalleDto;
-import com.challenge.comercia.dto.AlquilerRequestDto;
-import com.challenge.comercia.dto.AlquilerResponseDto;
-import com.challenge.comercia.entity.Alquiler;
-import com.challenge.comercia.entity.AlquilerCoche;
-import com.challenge.comercia.entity.Cliente;
-import com.challenge.comercia.entity.Coche;
-import com.challenge.comercia.repository.AlquilerCocheRepository;
-import com.challenge.comercia.repository.AlquilerRepository;
-import com.challenge.comercia.repository.ClienteRepository;
-import com.challenge.comercia.repository.CocheRepository;
+import com.challenge.comercia.dto.*;
+import com.challenge.comercia.entity.*;
+import com.challenge.comercia.repository.*;
 import com.challenge.comercia.service.pricing.PrecioAlquilerCalculatorResolver;
+import com.challenge.comercia.service.pricing.RecargoContext;
+import com.challenge.comercia.service.pricing.RecargoExtraCalculatorResolver;
 
 
 /**
@@ -48,6 +43,9 @@ public class AlquilerService {
   private CocheRepository cocheRepository;
 
   @Autowired
+  private CocheTipoRepository cocheTipoRepository;
+
+  @Autowired
   private AlquilerRepository alquilerRepository;
 
   @Autowired
@@ -55,6 +53,9 @@ public class AlquilerService {
 
   @Autowired
   private PrecioAlquilerCalculatorResolver precioCalculatorResolver;
+
+  @Autowired
+  private RecargoExtraCalculatorResolver recargoExtraCalculatorResolver;
 
   /**
    * Crea un nuevo alquiler para un cliente con uno o varios coches.
@@ -99,9 +100,8 @@ public class AlquilerService {
       int puntosCoche = coche.getCocheTipo().getPuntosLealtad();
       // calcular precio total del alquiler para el coche segun su tipo y numero
       // de dias
-      BigDecimal precioCoche =
-          precioCalculatorResolver.resolve(tipo)
-              .calcular(precioBaseDia, (int) diasBase);
+      BigDecimal precioCoche = precioCalculatorResolver.resolve(tipo)
+          .calcular(precioBaseDia, (int) diasBase);
 
       // Agregar detalle para respuesta
       detalles.add(AlquilerCocheDetalleDto.builder() //
@@ -222,6 +222,146 @@ public class AlquilerService {
       throw new IllegalArgumentException(sb.toString());
     }
 
+  }
+
+  /**
+   * Registra registrar la devolucion de coches de un alquiler.
+   *
+   * <p>
+   * Valida coherencia de campos, que los coches pertenezcan al alquiler y
+   * actualiza el estado del alquiler calculando recargos por devolucion tardia
+   * segun el tipo de coche y el numero de dias de retraso.
+   * </p>
+   *
+   * @param request DTO con los datos de devolucion
+   * @return DTO de resumen actualizado del alquiler
+   * @throws IllegalArgumentException si alguna validacion falla
+   */
+  @Transactional
+  public DevolucionAlquilerResponseDto devolverCoches(
+      DevolucionAlquilerRequestDto request) {
+    // 1. Validaciones de negocio
+    this.validarDevolverCoches(request);
+
+    // 2. Obtener el alquiler y los alquileres de coche
+    Alquiler alquiler =
+        alquilerRepository.findById(request.getAlquilerId()).orElse(null);
+    List<AlquilerCoche> alquileresCoches =
+        alquilerCocheRepository.findByAlquilerId(alquiler.getId());
+    Map<String, BigDecimal> preciosBaseByTipo = obtenerPreciosBaseByTipo();
+    RecargoContext recargoContext = new RecargoContext(preciosBaseByTipo);
+
+    // 3. Calcular recargos por cada coche y actualizar de alquileres de coche
+    for (AlquilerCoche alquilerCoche : alquileresCoches) {
+      int diasExtra = calcularDiasExtra(alquiler.getFechaFin(),
+          request.getFechaDevolucion());
+      BigDecimal precioExtra = recargoExtraCalculatorResolver //
+          .resolve(alquilerCoche.getCocheTipoSnapshot()) //
+          .calcular(recargoContext, diasExtra);
+
+      alquilerCoche.setFechaDevolucion(request.getFechaDevolucion());
+      alquilerCoche.setDiasExtra(diasExtra);
+      alquilerCoche.setPrecioExtra(precioExtra);
+      alquilerCoche
+          .setTotalCoche(alquilerCoche.getPrecioBase().add(precioExtra));
+      alquilerCocheRepository.save(alquilerCoche);
+    }
+
+    // 4. Calcular totales del alquiler
+    BigDecimal totalRecargoRegistrado = BigDecimal.ZERO;
+    BigDecimal totalFactura = BigDecimal.ZERO;
+    List<DevolucionCocheResumenDto> detalle = new ArrayList<>();
+    for (AlquilerCoche alquilerCoche : alquileresCoches) {
+      totalRecargoRegistrado =
+          totalRecargoRegistrado.add(alquilerCoche.getPrecioExtra());
+      BigDecimal recargo = alquilerCoche.getPrecioExtra();
+      int diasExtra = alquilerCoche.getDiasExtra();
+      LocalDate fechaUsadaCalculo = alquilerCoche.getFechaDevolucion();
+      BigDecimal totalCoche = alquilerCoche.getPrecioBase().add(recargo);
+      totalFactura = totalFactura.add(totalCoche);
+
+      detalle.add(DevolucionCocheResumenDto.builder() //
+          .cocheId(alquilerCoche.getCocheId()) //
+          .cocheTipo(alquilerCoche.getCocheTipoSnapshot()) //
+          .fechaDevolucion(fechaUsadaCalculo) //
+          .diasExtra(diasExtra) //
+          .precioExtra(recargo) //
+          .totalCoche(totalCoche) //
+          .build());
+    }
+
+    // 5. Actualizar valores calculados del alquiler
+    alquiler.setTotalRecargo(totalRecargoRegistrado);
+    alquiler
+        .setTotalAlquiler(alquiler.getTotalBase().add(totalRecargoRegistrado));
+    alquilerRepository.save(alquiler);
+
+    LOG.info(
+        "Alquiler con ID {} - Devolucion registrada con fecha {} - Recargo total registrado: {} EUR - Total factura: {} EUR",
+        alquiler.getId(), request.getFechaDevolucion(), totalRecargoRegistrado,
+        totalFactura);
+
+    return DevolucionAlquilerResponseDto.builder() //
+        .alquilerId(alquiler.getId()) //
+        .fechaInicio(alquiler.getFechaInicio()) //
+        .fechaFin(alquiler.getFechaFin()) //
+        .fechaDevolucion(request.getFechaDevolucion()) //
+        .totalBase(alquiler.getTotalBase()) //
+        .totalRecargoRegistrado(totalRecargoRegistrado) //
+        .totalFacturaRegistrada(alquiler.getTotalAlquiler()) //
+        .detalleCoches(detalle) //
+        .build();
+  }
+
+  private void validarDevolverCoches(DevolucionAlquilerRequestDto request) {
+    StringBuilder sb = new StringBuilder();
+
+    // Validar existencia del alquiler
+    Alquiler alquiler =
+        alquilerRepository.findById(request.getAlquilerId()).orElse(null);
+    if (Objects.isNull(alquiler)) {
+      sb.append("Alquiler no encontrado con ID: ") //
+          .append(request.getAlquilerId()) //
+          .append(". ");
+    }
+
+    // Validaciones de coherencia de fechas
+    if (request.getFechaDevolucion().isBefore(alquiler.getFechaInicio())) {
+      sb.append(
+          "La fecha de devolucion no puede ser anterior a la fecha de inicio del alquiler. ");
+    }
+
+    // No se puede devolver dos veces un mismo coche
+    List<AlquilerCoche> alquileresCoche =
+        alquilerCocheRepository.findByAlquilerId(request.getAlquilerId());
+    List<Long> cochesYaDevueltos = alquileresCoche.stream() //
+        .filter(ac -> Objects.nonNull(ac.getFechaDevolucion())) //
+        .map(AlquilerCoche::getCocheId) //
+        .toList();
+    if (BooleanUtils.isNotTrue(CollectionUtils.isEmpty(cochesYaDevueltos))) {
+      sb.append("Los siguientes coches ya han sido devueltos: ") //
+          .append(cochesYaDevueltos) //
+          .append(". ");
+    }
+
+    if (BooleanUtils.isNotTrue(sb.isEmpty())) {
+      throw new IllegalArgumentException(sb.toString());
+    }
+
+  }
+
+  private int calcularDiasExtra(LocalDate fechaFinAlquiler,
+      LocalDate fechaDevolucion) {
+    long dias = ChronoUnit.DAYS.between(fechaFinAlquiler, fechaDevolucion);
+    // Si la devolucion es antes o en la fecha fin, no hay dias extra
+    return (int) Math.max(0, dias);
+  }
+
+  private Map<String, BigDecimal> obtenerPreciosBaseByTipo() {
+    List<CocheTipo> tipos = cocheTipoRepository.findAll();
+
+    return tipos.stream()
+        .collect(Collectors.toMap(CocheTipo::getId, CocheTipo::getPrecioBase));
   }
 
 }

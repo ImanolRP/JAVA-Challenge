@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import com.challenge.comercia.dto.AlquilerRequestDto;
 import com.challenge.comercia.dto.AlquilerResponseDto;
+import com.challenge.comercia.dto.DevolucionAlquilerRequestDto;
+import com.challenge.comercia.dto.DevolucionAlquilerResponseDto;
 import com.challenge.comercia.service.AlquilerService;
 
 import jakarta.validation.Valid;
@@ -45,6 +47,32 @@ public class AlquilerController {
     AlquilerResponseDto response = alquilerService.crearAlquiler(request);
 
     return new ResponseEntity<>(response, HttpStatus.CREATED);
+  }
+
+  /**
+   * Endpoint para registrar la devolucion de coches de un alquiler.
+   *
+   * Para poder abordar el MVP, se asume que la devolucion se realiza en una
+   * sola operacion, es decir, no se permiten devoluciones parciales. En caso de
+   * querer permitir devoluciones parciales, se deberia modificar el request
+   * para incluir los coches que se devuelven y el servicio para actualizar el
+   * estado del alquiler en consecuencia.
+   *
+   * @param request DevolucionAlquilerRequestDto con los datos del alquiler y la
+   *        fecha de devolucion
+   * @return estado actualizado del alquiler tras la devolucion o 400/422 si hay
+   *         errores de validacion
+   */
+  @PostMapping("/devolucion")
+  public @ResponseBody ResponseEntity<DevolucionAlquilerResponseDto> devolverCoches(
+      @Valid @RequestBody DevolucionAlquilerRequestDto request) {
+    LOG.info("POST /alquiler/devolucion - alquilerId={}, fecha={}",
+        request.getAlquilerId(), request.getFechaDevolucion());
+
+    DevolucionAlquilerResponseDto response =
+        alquilerService.devolverCoches(request);
+
+    return new ResponseEntity<>(response, HttpStatus.OK);
   }
 
 }
