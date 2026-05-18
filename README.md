@@ -101,3 +101,114 @@ El artefacto final esperado para despliegue local es:
 Se ha subido la ultima version del .jar para facilitar pruebas, pero el proceso de build local es recomendado para
 asegurar que todo esta correcto en tu entorno.
 
+---
+
+## Casos de uso / Ejemplos de API
+
+**Base URL:** `http://localhost:8080/comercia-api`
+
+> Los ejemplos usan `curl`. Tambien puedes importar la coleccion Postman directamente desde `0-docs/` si existe,
+> o reproducir las peticiones con cualquier cliente HTTP.
+
+---
+
+### Crear alquiler
+
+#### `POST /alquiler` — Alquiler de 1 coche
+
+```bash
+curl -X POST http://localhost:8080/comercia-api/alquiler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clienteId": 2,
+    "cocheIds": [4],
+    "fechaInicio": "2027-02-01",
+    "fechaFin": "2027-02-05"
+  }'
+```
+
+#### `POST /alquiler` — Alquiler de 3 coches
+
+```bash
+curl -X POST http://localhost:8080/comercia-api/alquiler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clienteId": 1,
+    "cocheIds": [1, 2, 3],
+    "fechaInicio": "2027-02-10",
+    "fechaFin": "2027-02-15"
+  }'
+```
+
+#### `POST /alquiler` — Alquiler de 3 coches con tramos de precio (>7 dias y >30 dias)
+
+```bash
+curl -X POST http://localhost:8080/comercia-api/alquiler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clienteId": 3,
+    "cocheIds": [5, 6, 7],
+    "fechaInicio": "2027-03-01",
+    "fechaFin": "2027-04-10"
+  }'
+```
+
+> Este caso cubre mas de 30 dias de alquiler, activando los tres tramos de precio de SUV y Small.
+
+---
+
+### Devolucion de coches
+
+#### `POST /alquiler/devolucion` — Devolucion antes de la fecha fin (sin recargo)
+
+```bash
+curl -X POST http://localhost:8080/comercia-api/alquiler/devolucion \
+  -H "Content-Type: application/json" \
+  -d '{
+    "alquilerId": 1,
+    "fechaDevolucion": "2026-01-03"
+  }'
+```
+
+#### `POST /alquiler/devolucion` — Devolucion en el ultimo dia pactado (sin recargo)
+
+```bash
+curl -X POST http://localhost:8080/comercia-api/alquiler/devolucion \
+  -H "Content-Type: application/json" \
+  -d '{
+    "alquilerId": 7,
+    "fechaDevolucion": "2026-02-04"
+  }'
+```
+
+#### `POST /alquiler/devolucion` — Devolucion tardia (con recargo por dias extra)
+
+```bash
+curl -X POST http://localhost:8080/comercia-api/alquiler/devolucion \
+  -H "Content-Type: application/json" \
+  -d '{
+    "alquilerId": 71,
+    "fechaDevolucion": "2027-01-20"
+  }'
+```
+
+> Este caso activa el calculo de recargo por dias de retraso segun el tipo de cada coche del alquiler.
+
+---
+
+### Consultar coches disponibles
+
+#### `GET /alquiler/disponibles` — Con filtro de tipo
+
+```bash
+curl "http://localhost:8080/comercia-api/alquiler/disponibles?fechaInicio=2027-01-10&fechaFin=2027-01-20&cocheTipoId=SUV"
+```
+
+#### `GET /alquiler/disponibles` — Sin filtro de tipo (todos los tipos)
+
+```bash
+curl "http://localhost:8080/comercia-api/alquiler/disponibles?fechaInicio=2027-01-10&fechaFin=2027-01-20"
+```
+
+> El endpoint devuelve un Page paginado. Puedes añadir `&page=0&size=10&sort=matricula,asc` para controlar la paginacion.
+
