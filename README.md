@@ -98,3 +98,6 @@ El artefacto final esperado para despliegue local es:
 
 - `to_deploy/comercia-challenge.jar`
 
+Se ha subido la ultima version del .jar para facilitar pruebas, pero el proceso de build local es recomendado para
+asegurar que todo esta correcto en tu entorno.
+
