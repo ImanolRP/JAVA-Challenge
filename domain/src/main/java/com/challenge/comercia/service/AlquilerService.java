@@ -10,10 +10,14 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -161,6 +165,54 @@ public class AlquilerService {
         .puntosLealtadGenerados(totalPuntos) //
         .totalPuntosLealtadCliente(cliente.getTotalPuntosLealtad()) //
         .build();
+  }
+
+  /**
+   * Busca coches disponibles en un rango de fechas y opcionalmente por tipo.
+   *
+   * @param request datos de filtro de disponibilidad
+   * @param pageable
+   * @return listado de coches disponibles
+   */
+  public Page<CocheDisponibleDto> buscarCochesDisponibles(
+      DisponibilidadCochesRequestDto request, Pageable pageable) {
+    // 1. Validaciones de negocio
+    this.validarBuscarDisponibilidad(request);
+
+    // 2. Buscar coches disponibles en base de datos
+    Page<Coche> cochesPage =
+        cocheRepository.findDisponibles(request.getFechaInicio(),
+            request.getFechaFin(), request.getCocheTipoId(), pageable);
+
+    // 3. Mapear a DTO Page de respuesta
+    List<CocheDisponibleDto> content = cochesPage.getContent().stream()
+        .map(coche -> CocheDisponibleDto.builder() //
+            .id(coche.getId()) //
+            .matricula(coche.getMatricula()) //
+            .cocheTipoNombre(coche.getCocheTipo().getNombre()).build()) //
+        .toList();
+
+    return new PageImpl<>(content, pageable, cochesPage.getTotalElements());
+  }
+
+  private void validarBuscarDisponibilidad(
+      DisponibilidadCochesRequestDto request) {
+    StringBuilder sb = new StringBuilder();
+
+    if (request.getFechaFin().isBefore(request.getFechaInicio())) {
+      sb.append("La fecha fin no puede ser anterior a la fecha inicio. ");
+    }
+
+    if (StringUtils.isNotBlank(request.getCocheTipoId()) && BooleanUtils
+        .isNotTrue(cocheTipoRepository.existsById(request.getCocheTipoId()))) {
+      sb.append("Tipo de coche no encontrado: ") //
+          .append(request.getCocheTipoId()) //
+          .append(". ");
+    }
+
+    if (BooleanUtils.isNotTrue(sb.isEmpty())) {
+      throw new IllegalArgumentException(sb.toString());
+    }
   }
 
   private void validarCrearAlquiler(AlquilerRequestDto request) {
@@ -326,7 +378,8 @@ public class AlquilerService {
     }
 
     // Validaciones de coherencia de fechas
-    if (request.getFechaDevolucion().isBefore(alquiler.getFechaInicio())) {
+    if (Objects.nonNull(alquiler)
+        && request.getFechaDevolucion().isBefore(alquiler.getFechaInicio())) {
       sb.append(
           "La fecha de devolucion no puede ser anterior a la fecha de inicio del alquiler. ");
     }

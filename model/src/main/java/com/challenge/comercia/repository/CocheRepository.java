@@ -9,7 +9,8 @@ import com.challenge.comercia.entity.Coche;
  * The interface Coche repository.
  */
 @Repository
-public interface CocheRepository extends JpaRepository<Coche, Long> {
+public interface CocheRepository
+    extends JpaRepository<Coche, Long>, CocheRepositoryCustom {
   // empty interface
 }
 
