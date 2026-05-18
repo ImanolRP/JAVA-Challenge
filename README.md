@@ -107,8 +107,11 @@ asegurar que todo esta correcto en tu entorno.
 
 **Base URL:** `http://localhost:8080/comercia-api`
 
-> Los ejemplos usan `curl`. Tambien puedes importar la coleccion Postman directamente desde `0-docs/` si existe,
-> o reproducir las peticiones con cualquier cliente HTTP.
+> Los ejemplos de abajo estan preparados para **Windows PowerShell**. Por eso usan `curl.exe` en lugar de `curl`,
+> ya que en PowerShell `curl` puede resolverse como alias de `Invoke-WebRequest`.
+>
+> Importante: en los `POST` de `curl.exe`, el JSON debe ir con las comillas dobles **escapadas** como `\"...\"`.
+> Si no se escapan, PowerShell altera el payload y la API responde `400 Bad Request`.
 
 ---
 
@@ -116,41 +119,20 @@ asegurar que todo esta correcto en tu entorno.
 
 #### `POST /alquiler` — Alquiler de 1 coche
 
-```bash
-curl -X POST http://localhost:8080/comercia-api/alquiler \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clienteId": 2,
-    "cocheIds": [4],
-    "fechaInicio": "2027-02-01",
-    "fechaFin": "2027-02-05"
-  }'
+```powershell
+curl.exe -X POST "http://localhost:8080/comercia-api/alquiler" -H "Content-Type: application/json" --data-raw '{\"clienteId\":2,\"cocheIds\":[4],\"fechaInicio\":\"2027-02-01\",\"fechaFin\":\"2027-02-05\"}'
 ```
 
 #### `POST /alquiler` — Alquiler de 3 coches
 
-```bash
-curl -X POST http://localhost:8080/comercia-api/alquiler \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clienteId": 1,
-    "cocheIds": [1, 2, 3],
-    "fechaInicio": "2027-02-10",
-    "fechaFin": "2027-02-15"
-  }'
+```powershell
+curl.exe -X POST "http://localhost:8080/comercia-api/alquiler" -H "Content-Type: application/json" --data-raw '{\"clienteId\":1,\"cocheIds\":[1,2,3],\"fechaInicio\":\"2027-02-10\",\"fechaFin\":\"2027-02-15\"}'
 ```
 
 #### `POST /alquiler` — Alquiler de 3 coches con tramos de precio (>7 dias y >30 dias)
 
-```bash
-curl -X POST http://localhost:8080/comercia-api/alquiler \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clienteId": 3,
-    "cocheIds": [5, 6, 7],
-    "fechaInicio": "2027-03-01",
-    "fechaFin": "2027-04-10"
-  }'
+```powershell
+curl.exe -X POST "http://localhost:8080/comercia-api/alquiler" -H "Content-Type: application/json" --data-raw '{\"clienteId\":3,\"cocheIds\":[5,6,7],\"fechaInicio\":\"2027-03-01\",\"fechaFin\":\"2027-04-10\"}'
 ```
 
 > Este caso cubre mas de 30 dias de alquiler, activando los tres tramos de precio de SUV y Small.
@@ -161,35 +143,20 @@ curl -X POST http://localhost:8080/comercia-api/alquiler \
 
 #### `POST /alquiler/devolucion` — Devolucion antes de la fecha fin (sin recargo)
 
-```bash
-curl -X POST http://localhost:8080/comercia-api/alquiler/devolucion \
-  -H "Content-Type: application/json" \
-  -d '{
-    "alquilerId": 1,
-    "fechaDevolucion": "2026-01-03"
-  }'
+```powershell
+curl.exe -X POST "http://localhost:8080/comercia-api/alquiler/devolucion" -H "Content-Type: application/json" --data-raw '{\"alquilerId\":1,\"fechaDevolucion\":\"2026-01-03\"}'
 ```
 
 #### `POST /alquiler/devolucion` — Devolucion en el ultimo dia pactado (sin recargo)
 
-```bash
-curl -X POST http://localhost:8080/comercia-api/alquiler/devolucion \
-  -H "Content-Type: application/json" \
-  -d '{
-    "alquilerId": 7,
-    "fechaDevolucion": "2026-02-04"
-  }'
+```powershell
+curl.exe -X POST "http://localhost:8080/comercia-api/alquiler/devolucion" -H "Content-Type: application/json" --data-raw '{\"alquilerId\":7,\"fechaDevolucion\":\"2026-02-04\"}'
 ```
 
 #### `POST /alquiler/devolucion` — Devolucion tardia (con recargo por dias extra)
 
-```bash
-curl -X POST http://localhost:8080/comercia-api/alquiler/devolucion \
-  -H "Content-Type: application/json" \
-  -d '{
-    "alquilerId": 71,
-    "fechaDevolucion": "2027-01-20"
-  }'
+```powershell
+curl.exe -X POST "http://localhost:8080/comercia-api/alquiler/devolucion" -H "Content-Type: application/json" --data-raw '{\"alquilerId\":71,\"fechaDevolucion\":\"2027-01-20\"}'
 ```
 
 > Este caso activa el calculo de recargo por dias de retraso segun el tipo de cada coche del alquiler.
@@ -200,15 +167,16 @@ curl -X POST http://localhost:8080/comercia-api/alquiler/devolucion \
 
 #### `GET /alquiler/disponibles` — Con filtro de tipo
 
-```bash
-curl "http://localhost:8080/comercia-api/alquiler/disponibles?fechaInicio=2027-01-10&fechaFin=2027-01-20&cocheTipoId=SUV"
+```powershell
+curl.exe "http://localhost:8080/comercia-api/alquiler/disponibles?fechaInicio=2027-01-10&fechaFin=2027-01-20&cocheTipoId=SUV"
 ```
 
 #### `GET /alquiler/disponibles` — Sin filtro de tipo (todos los tipos)
 
-```bash
-curl "http://localhost:8080/comercia-api/alquiler/disponibles?fechaInicio=2027-01-10&fechaFin=2027-01-20"
+```powershell
+curl.exe "http://localhost:8080/comercia-api/alquiler/disponibles?fechaInicio=2027-01-10&fechaFin=2027-01-20"
 ```
 
-> El endpoint devuelve un Page paginado. Puedes añadir `&page=0&size=10&sort=matricula,asc` para controlar la paginacion.
+> El endpoint devuelve un Page paginado. Puedes añadir `&page=0&size=10&sort=matricula,asc` para controlar la
+> paginacion.
 
