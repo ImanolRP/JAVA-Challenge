@@ -1,4 +1,4 @@
-package com.challenge.comercia.repository;
+package com.challenge.comercia.repository.custom;
 
 import java.time.LocalDate;
 

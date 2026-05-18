@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.challenge.comercia.entity.Coche;
+import com.challenge.comercia.repository.custom.CocheRepositoryCustom;
 
 /**
  * The interface Coche repository.

@@ -1,4 +1,4 @@
-package com.challenge.comercia.repository;
+package com.challenge.comercia.repository.impl;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 
 import com.challenge.comercia.entity.AlquilerCoche;
 import com.challenge.comercia.entity.Coche;
+import com.challenge.comercia.repository.custom.CocheRepositoryCustom;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
