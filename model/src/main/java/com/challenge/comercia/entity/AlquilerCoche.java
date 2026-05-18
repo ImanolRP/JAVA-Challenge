@@ -26,9 +26,15 @@ public class AlquilerCoche {
   @Column(name = "ID")
   private Long id;
 
+  @Column(name = "ALQUILER_ID")
+  private Long alquilerId;
+
   @ManyToOne
   @JoinColumn(name = "ALQUILER_ID", insertable = false, updatable = false)
   private Alquiler alquiler;
+
+  @Column(name = "COCHE_ID")
+  private Long cocheId;
 
   @ManyToOne
   @JoinColumn(name = "COCHE_ID", insertable = false, updatable = false)

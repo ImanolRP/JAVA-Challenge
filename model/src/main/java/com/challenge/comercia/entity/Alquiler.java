@@ -26,6 +26,9 @@ public class Alquiler {
   @Column(name = "ID")
   private Long id;
 
+  @Column(name = "CLIENTE_ID")
+  private Long clienteId;
+
   @ManyToOne
   @JoinColumn(name = "CLIENTE_ID", insertable = false, updatable = false)
   private Cliente cliente;
