@@ -2,8 +2,8 @@
 setlocal
 
 REM 1) Environment variables only for this execution
-set "JAVA_HOME=J:\app\jdk\jdk-21.0.11"
-set "MAVEN_HOME=J:\app\lib\apache-maven-3.9.8"
+set "JAVA_HOME={your_java_21_path_here}"
+set "MAVEN_HOME={your_maven_path_here}"
 set "PATH=%JAVA_HOME%\bin;%MAVEN_HOME%\bin;%PATH%"
 
 REM 2) Navigate to the project root
@@ -40,5 +40,5 @@ if /I "%~1"=="--skip-run" (
     exit /b 0
 )
 
-call "%JAVA_HOME%\bin\java.exe" -jar "%JAR_FILE%"
+call "%JAVA_HOME%\bin\java.exe" -jar -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 "%JAR_FILE%"
 
